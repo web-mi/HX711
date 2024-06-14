@@ -33,34 +33,6 @@
 #include <util/atomic.h>
 #endif
 
-#if FAST_CPU
-// Make shiftIn() be aware of clockspeed for
-// faster CPUs like ESP32, Teensy 3.x and friends.
-// See also:
-// - https://github.com/bogde/HX711/issues/75
-// - https://github.com/arduino/Arduino/issues/6561
-// - https://community.hiveeyes.org/t/using-bogdans-canonical-hx711-library-on-the-esp32/539
-uint8_t shiftInSlow(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder) {
-    uint8_t value = 0;
-    uint8_t i;
-
-    for(i = 0; i < 8; ++i) {
-        digitalWrite(clockPin, HIGH);
-        delayMicroseconds(1);
-        if(bitOrder == LSBFIRST)
-            value |= digitalRead(dataPin) << i;
-        else
-            value |= digitalRead(dataPin) << (7 - i);
-        digitalWrite(clockPin, LOW);
-        delayMicroseconds(1);
-    }
-    return value;
-}
-#define SHIFTIN_WITH_SPEED_SUPPORT(data,clock,order) shiftInSlow(data,clock,order)
-#else
-#define SHIFTIN_WITH_SPEED_SUPPORT(data,clock,order) shiftIn(data,clock,order)
-#endif
-
 #if ARCH_ESPRESSIF
 // ESP8266 doesn't read values between 0x20000 and 0x30000 when DOUT is pulled up.
 #define DOUT_MODE INPUT
@@ -75,18 +47,100 @@ HX711::HX711() {
 HX711::~HX711() {
 }
 
+uint8_t HX711::shiftInCustom(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder) {
+  #if FAST_CPU
+    // Make shiftIn() be aware of clockspeed for
+    // faster CPUs like ESP32, Teensy 3.x and friends.
+    // See also:
+    // - https://github.com/bogde/HX711/issues/75
+    // - https://github.com/arduino/Arduino/issues/6561
+    // - https://community.hiveeyes.org/t/using-bogdans-canonical-hx711-library-on-the-esp32/539
+    uint8_t value = 0;
+    uint8_t i;
+
+    for(i = 0; i < 8; ++i) {
+        dWrite(clockPin, HIGH);
+        delayMicroseconds(1);
+        if(bitOrder == LSBFIRST)
+            value |= dRead(dataPin) << i;
+        else
+            value |= dRead(dataPin) << (7 - i);
+        dWrite(clockPin, LOW);
+        delayMicroseconds(1);
+    }
+    return value;
+  #else
+    return shiftIn(dataPin, clockPin, bitOrder);
+  #endif
+}
+
+#ifdef PCF8574_h
+  void begin(byte dout, byte pd_sck, byte gain = 128, PCF8574 *pcf) {
+    pcf8574 = pcf;
+    begin(dout, pd_sck, gain);
+  }
+#endif
+
+#ifdef SparkFunSX1509_H
+  void begin(byte dout, byte pd_sck, byte gain = 128, SX1509 *sx) {
+    sx1509 = sx;
+    begin(dout, pd_sck, gain);
+  }
+#endif
+
 void HX711::begin(byte dout, byte pd_sck, byte gain) {
 	PD_SCK = pd_sck;
 	DOUT = dout;
 
-	pinMode(PD_SCK, OUTPUT);
-	pinMode(DOUT, DOUT_MODE);
+	pMode(PD_SCK, OUTPUT);
+	pMode(DOUT, DOUT_MODE);
 
 	set_gain(gain);
 }
 
+int HX711::dRead(uint8_t pin) {
+  #ifdef PCF8574_h
+    if (pcf8574 != NULL) {
+      return (*pcf8574).digitalRead(pin);
+    }
+  #endif
+  #ifdef SparkFunSX1509_H
+    if (sx1509 != NULL) {
+      return (*sx1509).digitalRead(pin);
+    }
+  #endif
+
+	return digitalRead(pin);
+}
+void HX711::dWrite(uint8_t pin, uint8_t value) {
+  #ifdef PCF8574_h
+    if (pcf8574 != NULL) {
+      return (*pcf8574).digitalWrite(pin);
+    }
+  #endif
+  #ifdef SparkFunSX1509_H
+    if (sx1509 != NULL) {
+      return (*sx1509).digitalWrite(pin);
+    }
+  #endif
+	return digitalWrite(pin, value);
+}
+void HX711::pMode(uint8_t pin, uint8_t mode) {
+  #ifdef PCF8574_h
+    if (pcf8574 != NULL) {
+      return (*pcf8574).pinMode(pin);
+    }
+  #endif
+  #ifdef SparkFunSX1509_H
+    if (sx1509 != NULL) {
+      return (*sx1509).pinMode(pin);
+    }
+  #endif
+	return pinMode(pin, mode);
+}
+
 bool HX711::is_ready() {
-	return digitalRead(DOUT) == LOW;
+	return dRead(DOUT) == LOW;
 }
 
 void HX711::set_gain(byte gain) {
@@ -145,17 +199,17 @@ long HX711::read() {
 	#endif
 
 	// Pulse the clock pin 24 times to read the data.
-	data[2] = SHIFTIN_WITH_SPEED_SUPPORT(DOUT, PD_SCK, MSBFIRST);
-	data[1] = SHIFTIN_WITH_SPEED_SUPPORT(DOUT, PD_SCK, MSBFIRST);
-	data[0] = SHIFTIN_WITH_SPEED_SUPPORT(DOUT, PD_SCK, MSBFIRST);
+	data[2] = shiftInCustom(DOUT, PD_SCK, MSBFIRST);
+	data[1] = shiftInCustom(DOUT, PD_SCK, MSBFIRST);
+	data[0] = shiftInCustom(DOUT, PD_SCK, MSBFIRST);
 
 	// Set the channel and the gain factor for the next reading using the clock pin.
 	for (unsigned int i = 0; i < GAIN; i++) {
-		digitalWrite(PD_SCK, HIGH);
+		dWrite(PD_SCK, HIGH);
 		#if ARCH_ESPRESSIF
 		delayMicroseconds(1);
 		#endif
-		digitalWrite(PD_SCK, LOW);
+		dWrite(PD_SCK, LOW);
 		#if ARCH_ESPRESSIF
 		delayMicroseconds(1);
 		#endif
@@ -269,10 +323,10 @@ long HX711::get_offset() {
 }
 
 void HX711::power_down() {
-	digitalWrite(PD_SCK, LOW);
-	digitalWrite(PD_SCK, HIGH);
+	dWrite(PD_SCK, LOW);
+	dWrite(PD_SCK, HIGH);
 }
 
 void HX711::power_up() {
-	digitalWrite(PD_SCK, LOW);
+	dWrite(PD_SCK, LOW);
 }

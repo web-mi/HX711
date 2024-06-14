@@ -25,6 +25,13 @@ class HX711
 		long OFFSET = 0;	// used for tare weight
 		float SCALE = 1;	// used to return weight in grams, kg, ounces, whatever
 
+    #ifdef PCF8574_h
+      PCF8574 *pcf8574 = NULL;
+    #endif
+
+    #ifdef SparkFunSX1509_H
+      SX1509 *sx1509 = NULL;
+    #endif
 	public:
 
 		HX711();
@@ -37,6 +44,13 @@ class HX711
 		// - With a gain factor of 32, channel B is selected
 		// The library default is "128" (Channel A).
 		void begin(byte dout, byte pd_sck, byte gain = 128);
+    #ifdef PCF8574_h
+		  void begin(byte dout, byte pd_sck, byte gain = 128, PCF8574 *pcf8574);
+    #endif
+
+    #ifdef SparkFunSX1509_H
+		  void begin(byte dout, byte pd_sck, byte gain = 128, SX1509 *sx1509);
+    #endif
 
 		// Check if HX711 is ready
 		// from the datasheet: When output data is not ready for retrieval, digital output pin DOUT is high. Serial clock
@@ -86,6 +100,11 @@ class HX711
 
 		// wakes up the chip after power down mode
 		void power_up();
+
+    uint8_t shiftInCustom(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder);
+    int dRead(uint8_t pin);
+    void dWrite(uint8_t pin, uint8_t value);
+    void pMode(uint8_t pin, uint8_t mode);
 };
 
 #endif /* HX711_h */
