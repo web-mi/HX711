@@ -16,6 +16,10 @@
 #include "WProgram.h"
 #endif
 
+#include <Wire.h>
+#include <SparkFunSX1509.h>
+#include <PCF8574.h>
+
 class HX711
 {
 	private:
@@ -24,14 +28,8 @@ class HX711
 		byte GAIN;		// amplification factor
 		long OFFSET = 0;	// used for tare weight
 		float SCALE = 1;	// used to return weight in grams, kg, ounces, whatever
-
-    #ifdef PCF8574_h
-      PCF8574 *pcf8574 = NULL;
-    #endif
-
-    #ifdef SparkFunSX1509_H
-      SX1509 *sx1509 = NULL;
-    #endif
+    PCF8574 *pcf8574 = NULL;
+    SX1509 *sx1509 = NULL;
 	public:
 
 		HX711();
@@ -44,14 +42,9 @@ class HX711
 		// - With a gain factor of 32, channel B is selected
 		// The library default is "128" (Channel A).
 		void begin(byte dout, byte pd_sck, byte gain = 128);
-    #ifdef PCF8574_h
-		  void begin(byte dout, byte pd_sck, byte gain = 128, PCF8574 *pcf8574);
-    #endif
-
-    #ifdef SparkFunSX1509_H
-		  void begin(byte dout, byte pd_sck, byte gain = 128, SX1509 *sx1509);
-    #endif
-
+    void begin(PCF8574 *pcf8574, byte dout, byte pd_sck, byte gain = 128);
+    void begin(SX1509 *sx1509, byte dout, byte pd_sck, byte gain = 128);
+    
 		// Check if HX711 is ready
 		// from the datasheet: When output data is not ready for retrieval, digital output pin DOUT is high. Serial clock
 		// input PD_SCK should be low. When DOUT goes to low, it indicates data is ready for retrieval.

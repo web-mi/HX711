@@ -74,20 +74,6 @@ uint8_t HX711::shiftInCustom(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder
   #endif
 }
 
-#ifdef PCF8574_h
-  void begin(byte dout, byte pd_sck, byte gain = 128, PCF8574 *pcf) {
-    pcf8574 = pcf;
-    begin(dout, pd_sck, gain);
-  }
-#endif
-
-#ifdef SparkFunSX1509_H
-  void begin(byte dout, byte pd_sck, byte gain = 128, SX1509 *sx) {
-    sx1509 = sx;
-    begin(dout, pd_sck, gain);
-  }
-#endif
-
 void HX711::begin(byte dout, byte pd_sck, byte gain) {
 	PD_SCK = pd_sck;
 	DOUT = dout;
@@ -98,45 +84,49 @@ void HX711::begin(byte dout, byte pd_sck, byte gain) {
 	set_gain(gain);
 }
 
-int HX711::dRead(uint8_t pin) {
-  #ifdef PCF8574_h
-    if (pcf8574 != NULL) {
-      return (*pcf8574).digitalRead(pin);
-    }
-  #endif
-  #ifdef SparkFunSX1509_H
-    if (sx1509 != NULL) {
-      return (*sx1509).digitalRead(pin);
-    }
-  #endif
+void HX711::begin(PCF8574 *pcf, byte dout, byte pd_sck, byte gain) {
+  pcf8574 = pcf;
+  begin(dout, pd_sck, gain);
+}
+void HX711::begin(SX1509 *sx, byte dout, byte pd_sck, byte gain) {
+  sx1509 = sx;
+  begin(dout, pd_sck, gain);
+}
 
+int HX711::dRead(uint8_t pin) {
+  if (pcf8574 != NULL) {
+    return (*pcf8574).digitalRead(pin);
+  }
+
+  if (sx1509 != NULL) {
+    return (*sx1509).digitalRead(pin);
+  }
+  
 	return digitalRead(pin);
 }
 void HX711::dWrite(uint8_t pin, uint8_t value) {
-  #ifdef PCF8574_h
-    if (pcf8574 != NULL) {
-      return (*pcf8574).digitalWrite(pin);
-    }
-  #endif
-  #ifdef SparkFunSX1509_H
-    if (sx1509 != NULL) {
-      return (*sx1509).digitalWrite(pin);
-    }
-  #endif
+  if (pcf8574 != NULL) {
+    (*pcf8574).digitalWrite(pin, value);
+    return;
+  }
+  
+  if (sx1509 != NULL) {
+    (*sx1509).digitalWrite(pin, value);
+    return;
+  }
+  
 	return digitalWrite(pin, value);
 }
 void HX711::pMode(uint8_t pin, uint8_t mode) {
-  #ifdef PCF8574_h
-    if (pcf8574 != NULL) {
-      return (*pcf8574).pinMode(pin);
-    }
-  #endif
-  #ifdef SparkFunSX1509_H
-    if (sx1509 != NULL) {
-      return (*sx1509).pinMode(pin);
-    }
-  #endif
-	return pinMode(pin, mode);
+  if (pcf8574 != NULL) {
+    return (*pcf8574).pinMode(pin, mode);
+  }
+  
+  if (sx1509 != NULL) {
+    return (*sx1509).pinMode(pin, mode);
+  }
+  
+  return pinMode(pin, mode);
 }
 
 bool HX711::is_ready() {
