@@ -14,6 +14,8 @@
 
 # IDE metadata
 /.idea
+/.pio
+/.vscode
 
 # PlatformIO virtualenv and pioenv
 /.venv*
